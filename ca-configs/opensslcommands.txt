@@ -1,0 +1,24 @@
+Step 1 Generate a private key using openssl 
+    openssl genrsa -out ca.key 2048
+
+Step 2 Create CSR to sign the certificate
+    openssl req -new -key ca.key -out ca.csr -config ca.conf 
+    
+
+Step 3 Create a Certificate CRT and e-sign using the above csr
+    openssl x509 -req -days 365 -in re.csr -signkey ca.key -out re.crt -extensions req_ext -extfile re.conf
+
+Step 2 & 3 combined
+    openssl req -x509 -new -sha512 -noenc -key ca.key -days 365 -config re.conf -out re.crt
+
+
+Regarding Conf file
+    https://pki-tutorial.readthedocs.io/en/stable/extensions.html
+
+Write all configs in a single file like ca.conf and execute the above commands inside the for loop.
+To pick up the right set of configs use the below command 
+    openssl req -new -key ca.key -out re.csr -config ca.conf  -section <nameof the section>
+    Ex:
+        openssl req -new -key ca.key -out re.csr -config ca.conf  -section admin
+
+kube-api-server IP.1 points to the private ip of the vm which you designated as master node

@@ -1,0 +1,143 @@
+Step 1
+ Create two VMs 
+  1  4GB RAM 2 vCPU 40 GB SDD  -  Master Node
+  2  2GB RAm 1 vCPU 40 GB SDD  -  Worker Node
+
+Step 2
+ Generate private/public key in both VMs. Login to both VMs and execute below commands
+  cd ~/.ssh
+  ssh-keygen -t ecdsa
+  mkdir ~/tmp
+
+Step 3
+ Set Passwordless for root login and passwordless sudo on both the VMs. Login to both VMs
+  File : /etc/ssh/sshd_config content 
+   Old Value: PermitRootLogin passwordProhibited
+   New Value: PermitRootLogin yes
+  Execute the command
+   systemctl restart sshd
+   sudo visudo 
+    root    ALL=(ALL:ALL) NOPASSWD:ALL
+    sudo    ALL=(ALL:ALL) NOPASSWD:ALL
+
+
+Login to master node and perform below steps. Worker node login not required
+
+
+Step 4
+ Clone the Git repository  
+ Add a file beneath the folder ~/tmp/macs.txt with the below content in both the VMs
+  <Private IP of master node> server.kubernetes.local server     -- Master Node
+  <Private IP of worker node> node-0.kubernetes.local node-0 <CIDR range of worker node network>  -- Worker Node
+  Sample
+   10.0.1.4 server.kubernetes.local server
+   10.0.2.4 node-0.kubernetes.local node-0 10.0.2.0/24
+
+Step 5
+ Create a shell script file in the folder ~/tmp/setpubkey.sh with the below content. 
+ This step is to set the public key of both the VMs to both the VMs for password login from both VMs to both VMs
+ #!/usr/bin/env bash
+ while read IP FQDN HOST SUBNET; do
+  echo "Setting public key in ${IP}..."
+  ssh-copy-id root@${IP}
+ done < ~/tmp/macs.txt
+ Execute the below commands
+  chmod 755 ~/tmp/setpubkey.sh
+  ~/tmp/setpubkey.sh
+
+Step 5.5 Optional
+ To test the connectivity. Create a file tstcon.sh beneath the folder ~/tmp/tstcon.sh with the below content
+ while read IP FQDN HOST SUBNET; do
+  echo "Testting connection ${IP}..."
+  ssh -n root@${IP} hostname
+ done < ~/tmp/macs.txt
+ Execute the below commands
+  chmod 755 ~/tmp/tstcon.sh
+  ~/tmp/tstcon.sh
+
+Step 6
+ To set the hostname both the VMs, create file ~/tmp/sethstname.sh with the below content
+ #!/usr/bin/env bash
+ while read IP FQDN HOST SUBNET; do
+  echo "Setting hostname for ${IP}..."
+  ssh -n root@${IP} hostnamectl set-hostname ${HOST}
+  ssh -n root@${IP} systemctl restart systemd-hostnamed
+ done < macs.txt
+ Execute the below commands
+  chmod 755 ~/tmp/sethstname.sh
+  ~/tmp/sethstname.sh
+
+Step 7
+ Create a file ~/tmp/hstcontent.sh with the below content to create an intermediate ~/tmp/hosts with content which will be appended in /etc/hosts file in both VMs
+ #!/usr/bin/env bash
+ while read IP FQDN HOST SUBNET; do
+  echo "Forming the Entry using ${IP} ${FQDN} ${HOST}..."
+  ENTRY="${IP} ${FQDN} ${HOST}"
+  echo $ENTRY >> ~/tmp/hosts
+ done < macs.txt
+ Execute the below commands
+  chmod 755 ~/tmp/hstcontent.sh
+  ~/tmp/hstcontent.sh
+
+Step 7.5 Optional
+ See the content of the hosts file
+ cat ~/tmp/hosts
+
+Step 8
+ Create a file ~/tmp/hstcopy.sh to append the intermediate content to the file /etc/hosts in both VMs
+ #!/usr/bin/env bash
+ while read IP FQDN HOST SUBNET; do
+  scp ~/tmp/hosts root@${HOST}:~/
+  ssh -n root@${HOST} "cat ~/hosts >> /etc/hosts"
+ done < macs.txt
+ Execute the below commands
+  chmod 755 ~/tmp/hstcopy.sh
+  ~/tmp/hstcopy.sh
+
+Step 9
+ Create tls certificate for each component of kubernetes cluster. 
+ Verify the IP of the master node in the file kube-api-server.conf and other confs files in the folder ca-configs
+ Execute the below commands
+  mkdir certs
+  chmod 755 ./ca-configs/gencerts.sh
+  ./ca-configs/gencerts.sh
+  mv genkubeconfigs.sh certs/
+
+Step 10 
+ Generate kubeconfig file for each worker nodes, kube-proxy, kube-controller-manager, kube-scheduler and for admin user
+ Execute the below command
+  cd certs
+  chmod 755 ./genkubeconfigs.sh
+  ./genkubeconfigs.sh
+
+Step 11
+ Set up file permissions
+ Execute the below commands
+  cd ..
+  chmod 755 setenc.sh setetcd.sh setcontrolplane.sh setwrkrnodes.sh
+  ./setenc.sh
+  ./setetcd.sh
+  ./setcontrolplane.sh
+  ./setwrkrnodes.sh
+
+Step 12
+ Set the Kubectl in remote VMs
+  Download the admin key from the folder certs 
+   kubectl config set-cluster kubernetes-the-hard-way \
+    --certificate-authority=ca.crt \
+    --embed-certs=true \
+    --server=https://server.kubernetes.local:6443
+
+  kubectl config set-credentials admin \
+    --client-certificate=admin.crt \
+    --client-key=admin.key
+
+  kubectl config set-context kubernetes-the-hard-way \
+    --cluster=kubernetes-the-hard-way \
+    --user=admin
+
+  kubectl config use-context kubernetes-the-hard-way
+
+Step 13
+ For inter-pod communication
+  https://github.com/kelseyhightower/kubernetes-the-hard-way/blob/master/docs/11-pod-network-routes.md
