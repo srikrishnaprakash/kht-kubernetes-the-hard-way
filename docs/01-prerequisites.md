@@ -30,4 +30,15 @@ VERSION_CODENAME=bookworm
 ID=debian
 ```
 
-Next: [setting-up-the-jumpbox](02-jumpbox.md)
+Next: [Setting up Jumpbox](02-jumpbox.md)
+# Links
+
+[Provisioning Compute Resources](03-compute-resources.md)&emsp;&emsp;[Provisioning  CA and Generating TLS Certificates](04-certificate-authority.md)
+
+[Generating Kubernetes Configuration Files for Authentication](05-kubernetes-configuration-files.md)&emsp;&emsp;[Generating the Data Encryption Config and Key](06-data-encryption-keys.md)
+
+[Bootstrapping the etcd Cluster](07-bootstrapping-etcd.md)&emsp;&emsp;[Bootstrapping the Kubernetes Control Plane](08-bootstrapping-kubernetes-controllers.md)
+
+[Bootstrapping the Kubernetes Worker Nodes](09-bootstrapping-kubernetes-workers.md)&emsp;&emsp;[Configuring kubectl for Remote Access](10-configuring-kubectl.md)
+
+[Provisioning Pod Network Routes](11-pod-network-routes.md)&emsp;&emsp;[Smoke Test](12-smoke-test.md)&emsp;&emsp;[Cleaning Up](13-cleanup.md)

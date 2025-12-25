@@ -90,6 +90,12 @@ for host in node-0 node-1; do
 
   scp ${host}.key \
     root@${host}:/var/lib/kubelet/kubelet.key
+
+  scp kube-proxy.crt \
+    root@${host}:/var/lib/kubelet/kube-proxy.crt
+
+  scp kube-proxy.key \
+    root@${host}:/var/lib/kubelet/kube-proxy.key
 done
 ```
 
@@ -106,3 +112,14 @@ scp \
 > The `kube-proxy`, `kube-controller-manager`, `kube-scheduler`, and `kubelet` client certificates will be used to generate client authentication configuration files in the next lab.
 
 Next: [Generating Kubernetes Configuration Files for Authentication](05-kubernetes-configuration-files.md)
+# Links
+
+[Prerequisites](01-prerequisites.md)&emsp;&emsp;[Setting up Jumpbox](02-jumpbox.md)&emsp;&emsp;[Provisioning Compute Resources](03-compute-resources.md)
+
+[Provisioning  CA and Generating TLS Certificates](04-certificate-authority.md)&emsp;&emsp;[Generating the Data Encryption Config and Key](06-data-encryption-keys.md)
+
+[Bootstrapping the etcd Cluster](07-bootstrapping-etcd.md)&emsp;&emsp;[Bootstrapping the Kubernetes Control Plane](08-bootstrapping-kubernetes-controllers.md)
+
+[Bootstrapping the Kubernetes Worker Nodes](09-bootstrapping-kubernetes-workers.md)&emsp;&emsp;[Configuring kubectl for Remote Access](10-configuring-kubectl.md)
+
+[Provisioning Pod Network Routes](11-pod-network-routes.md)&emsp;&emsp;[Smoke Test](12-smoke-test.md)&emsp;&emsp;[Cleaning Up](13-cleanup.md)

@@ -1,0 +1,123 @@
+Step 1
+  Create 2 VM using the below hardware profile in the same subnet (Can be private or public).  I used Virtualbox Bridge Network with static private IPs
+    4GB RAM 2 vCPU 40 GB SSD  : Master Node - Nodename: UKM   : OS -  Ubuntu  : User  - ubuntu   IP: 192.168.1.13
+    4GB RAM 2 vCPU 40 GB SSD  : Worker Node - Nodename: UKW   : OS -  Ubuntu  : User  - ubuntu   IP: 192.168.1.14
+  Have a bastion host (linux 2GB RAM 2 vCPU  30 GB SSD Username ubuntu) if the you provisioned private subnet.  
+  In my case bastion host not required as I use virtualbox
+    Login to bastion host and execute the below instructions
+      Install git client (sudo apt install git -y)
+      Create folder /home/ubuntu/k8setup (mkdir /home/ubuntu/gitrepos)
+      Change your directory (cd /home/ubuntu/gitrepos/)
+      git clone git@github.com:rautomatez/k8s-setup-hardway.git k8setup
+      Change your directory (cd /home/ubuntu/gitrepos/k8setup)
+      ssh-keygen -t ecdsa -N "" -f /home/ubuntu/.ssh/id_ecdsa
+      ssh-copy-id -i ~/.ssh/id_ecdsa.pub -o "StrictHostKeyChecking=no" ubuntu@192.168.1.13
+      Provide the password of the master node user ubuntu
+      ssh-copy-id -i ~/.ssh/id_ecdsa.pub -o "StrictHostKeyChecking=no" ubuntu@192.168.1.14
+      Provide the password of the worker node user ubuntu
+      Create a folder downloads (mkdir downloads)
+      Downloads the below tools and save it into the folder downloads
+        https://dl.k8s.io/v1.32.3/bin/linux/amd64/kubectl
+        https://dl.k8s.io/v1.32.3/bin/linux/amd64/kube-apiserver
+        https://dl.k8s.io/v1.32.3/bin/linux/amd64/kube-controller-manager
+        https://dl.k8s.io/v1.32.3/bin/linux/amd64/kube-scheduler
+        https://dl.k8s.io/v1.32.3/bin/linux/amd64/kube-proxy
+        https://dl.k8s.io/v1.32.3/bin/linux/amd64/kubelet
+        https://github.com/etcd-io/etcd/releases/download/v3.6.0-rc.3/etcd-v3.6.0-rc.3-linux-amd64.tar.gz
+  
+  To set the static ip 
+  ssh ubuntu@192.168.1.13
+  sudo -s 
+  Edit the YAML file beneath the path /etc/netplan both the nodes using sudo -s 
+  ip addr get the inc name enp0s3 it can vary 
+---
+# network: {config: disabled}
+network:
+  ethernets :
+    enp0s3 :
+      dhcp4: false
+      addresses: [192.168.1.13/24]
+      routes:
+        - to: default
+          via: 192.168.1.1
+      nameservers:
+        addresses: [8.8.8.8, 4.2.2.2]
+version: 2
+  ssh ubuntu@192.168.1.14
+  sudo -s 
+---
+# network: {config: disabled}
+network:
+  ethernets :
+    enp0s3 :
+      dhcp4: false
+      addresses: [192.168.1.14/24]
+      routes:
+        - to: default
+          via: 192.168.1.1
+      nameservers:
+        addresses: [8.8.8.8, 4.2.2.2]
+version: 2
+
+
+Step 2
+      ssh ubuntu@192.168.1.13 "mkdir -p /home/ubuntu/lksw/{ss,conf,services,enc,yamls}"
+      scp ss/*sh ubuntu@192.168.1.13:/home/ubuntu/lksw/ss
+      scp conf/* ubuntu@192.168.1.13:/home/ubuntu/lksw/conf
+      scp units/* ubuntu@192.168.1.13:/home/ubuntu/lksw/services/
+      scp yamls/* ubuntu@192.168.1.13:/home/ubuntu/lksw/yamls/
+      scp downloads/* ubuntu@192.168.1.13:/home/ubuntu/lksw/
+      ssh ubuntu@192.168.1.13 "chmod 755 /home/ubuntu/lksw/ss/*.sh"
+      ssh ubuntu@192.168.1.13 "sh /home/ubuntu/lksw/ss/setmasterpreq.sh"
+      ssh ubuntu@192.168.1.13 "sudo hostnamectl set-hostname server"
+      ssh ubuntu@192.168.1.13 "sudo systemctl restart systemd-hostnamed"
+
+
+Step 3
+      ssh ubuntu@192.168.1.14 "mkdir -p /home/ubuntu/lksw/ss"
+      scp ss/* ubuntu@192.168.1.14:/home/ubuntu/lksw/ss
+      ssh ubuntu@192.168.1.14 "chmod 755 /home/ubuntu/lksw/ss/*.sh"
+      ssh ubuntu@192.168.1.14 "sh /home/ubuntu/lksw/ss/setworkernodepreq.sh"
+      ssh ubuntu@192.168.1.14 "sudo hostnamectl set-hostname node-0"
+      ssh ubuntu@192.168.1.14 "sudo systemctl restart systemd-hostnamed"
+
+
+Step 4
+    ssh root@192.168.1.13  (Provide the master node's root user password)
+      vi /etc/hosts
+      echo "192.168.1.13  server.kubernetes.local server" >> /etc/hosts
+      echo "192.168.1.14  node-0.kubernetes.local node-0" >> /etc/hosts
+      chmod 766 /root/ca
+    ssh ubuntu@192.168.1.13
+      ssh-copy-id -i ~/.ssh/id_ecdsa.pub -o "StrictHostKeyChecking=no" ubuntu@node-0.kubernetes.local 
+      ssh-copy-id -i ~/.ssh/id_ecdsa.pub -o "StrictHostKeyChecking=no" root@node-0.kubernetes.local
+      sh /home/ubuntu/lkws/ss/setmasterenv.sh myk8scluster
+
+
+Step 5
+    ssh root@192.168.1.14
+      vi /etc/hosts
+      echo "192.168.1.13  server.kubernetes.local server" >> /etc/hosts
+      echo "192.168.1.14  node-0.kubernetes.local node-0" >> /etc/hosts
+      mkdir -p /var/lib/kubelet/{kubeconfig,kube-proxy}
+      mkdir -p /etc/kubernetes
+      exit
+    ssh ubuntu@192.168.1.14
+      ssh-copy-id -i ~/.ssh/id_ecdsa.pub -o "StrictHostKeyChecking=no" ubuntu@server.kubernetes.local 
+      ssh-copy-id -i ~/.ssh/id_ecdsa.pub -o "StrictHostKeyChecking=no" root@server.kubernetes.local 
+      sh /home/ubuntu/lkws/ss/setworkernodenv.sh
+
+
+Step 6 
+    Download etcd : https://github.com/etcd-io/etcd/releases/download/v3.5.22/etcd-v3.5.22-linux-amd64.tar.gz
+
+
+Last Steps :
+
+  kubectl create configmap kube-root-ca.crt --from-file=/var/lib/kubernetes/ca.crt
+
+  apiVersion: v1
+  kind: ServiceAccount
+  metadata:
+    name: default
+    namespace: default 

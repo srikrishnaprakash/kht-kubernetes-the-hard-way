@@ -1,21 +1,26 @@
 [Unit]
-Description=etcd
+Description=etcd key-value store
 Documentation=https://github.com/etcd-io/etcd
+After=network-online.target local-fs.target remote-fs.target time-sync.target
+Wants=network-online.target local-fs.target remote-fs.target time-sync.target
 
 [Service]
+User=etcd
 Type=notify
+Environment=ETCD_DATA_DIR=/var/lib/etcd
+Environment=File=/etc/etcd/etcd.conf
 ExecStart=/usr/local/bin/etcd \
-  --name controller \
+  --name controller
   --initial-advertise-peer-urls http://127.0.0.1:2380 \
   --listen-peer-urls http://127.0.0.1:2380 \
   --listen-client-urls http://127.0.0.1:2379 \
   --advertise-client-urls http://127.0.0.1:2379 \
   --initial-cluster-token etcd-cluster-0 \
   --initial-cluster controller=http://127.0.0.1:2380 \
-  --initial-cluster-state new \
-  --data-dir=/var/lib/etcd
-Restart=on-failure
-RestartSec=5
+  --initial-cluster-state new
+Restart=always
+RestartSec=10s
+LimitNOFILE=40000
 
 [Install]
 WantedBy=multi-user.target
